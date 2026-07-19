@@ -1,96 +1,188 @@
-import requests
-import streamlit as st
-import sys
 import os
+import sys
 
-# -----------------------------
-# Add Project Root
-# -----------------------------
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+import streamlit as st
+
+PROJECT_ROOT = os.path.abspath(
+    os.path.join(
+        os.path.dirname(__file__),
+        ".."
+    )
+)
+
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from recommendation.recommendation_engine import generate_report
 
-# -----------------------------
+from utils.header import show_header
+from utils.sidebar import show_sidebar
+from utils.input_section import show_input_section
+
+from utils.quality_score import calculate_quality_score
+from utils.aspect_analyzer import analyze_aspects
+
+from utils.aws_handler import save_to_aws
+
+from utils.result_cards import (
+    show_result_cards,
+    show_ai_analysis
+)
+
+from utils.service_cards import (
+    show_service_cards,
+    show_aspect_table
+)
+
+from utils.trend_dashboard import show_trend_dashboard
+
+from utils.download_section import (
+    show_download_section
+)
+
+
+# ------------------------------------
 # Page Configuration
-# -----------------------------
+# ------------------------------------
+
 st.set_page_config(
-    page_title="British Airways AI Review Analyzer",
+
+    page_title="British Airways AI Analytics",
+
     page_icon="✈️",
+
     layout="wide"
+
 )
 
-# -----------------------------
-# Title
-# -----------------------------
-st.title("✈️ British Airways AI Review Analyzer")
-st.markdown("### AI Powered Customer Review Analysis")
+# ------------------------------------
+# Sidebar
+# ------------------------------------
 
-st.write("---")
+show_sidebar()
 
-# -----------------------------
-# API Gateway URL
-# -----------------------------
-API_URL = "https://8fmm7c7ioe.execute-api.ap-south-1.amazonaws.com/predict"
+# ------------------------------------
+# Header
+# ------------------------------------
 
-# -----------------------------
-# User Input
-# -----------------------------
-review = st.text_area(
-    "Enter a British Airways customer review",
-    height=200,
-    placeholder="Example:\nThe flight was delayed by 4 hours. Food was terrible and the staff were rude."
-)
+show_header()
 
-# -----------------------------
-# Analyze Button
-# -----------------------------
-if st.button("Analyze Review"):
+# ------------------------------------
+# Input Section
+# ------------------------------------
+
+review, analyze = show_input_section()
+
+# ------------------------------------
+# Analyze Review
+# ------------------------------------
+
+if analyze:
 
     if review.strip() == "":
+
         st.warning("Please enter a review.")
+
         st.stop()
 
-    # -----------------------------
-    # Generate AI Report
-    # -----------------------------
-    with st.spinner("Analyzing review..."):
+    with st.spinner("Analyzing Review..."):
+
         result = generate_report(review)
 
-    # -----------------------------
-    # Send to API Gateway
-    # -----------------------------
-    payload = {
-        "review": review,
-        "sentiment": result["sentiment"],
-        "csat": result.get("csat", ""),
-        "recommendations": result["recommendations"]
-    }
+    # ------------------------------------
+    # Quality Score
+    # ------------------------------------
 
-    try:
-        response = requests.post(API_URL, json=payload)
+    quality = calculate_quality_score(
 
-        if response.status_code == 200:
-            st.success("✅ Analysis saved to AWS successfully!")
-        else:
-            st.warning(f"⚠️ AWS returned Status Code: {response.status_code}")
-            st.write(response.text)
+        review,
 
-    except Exception as e:
-        st.error(f"AWS Error: {e}")
+        result["sentiment"]
 
-    # -----------------------------
-    # Display Results
-    # -----------------------------
-    st.success("Analysis Completed!")
+    )
 
-    st.write("---")
+    # ------------------------------------
+    # Aspect Analysis
+    # ------------------------------------
 
-    # Sentiment
-    st.subheader("📊 Predicted Sentiment")
-    st.info(result["sentiment"])
+    aspects = analyze_aspects(review)
 
-    # AI Analysis
-    st.subheader("🤖 AI Analysis")
-    st.write(result["recommendations"])
+    # ------------------------------------
+    # Save to AWS
+    # ------------------------------------
+
+    save_to_aws(
+
+        review,
+
+        result,
+
+        quality
+
+    )
+
+    # ------------------------------------
+    # Result Cards
+    # ------------------------------------
+
+    show_result_cards(
+
+        result["sentiment"],
+
+        quality
+
+    )
+
+    # ------------------------------------
+    # Aspect Table
+    # ------------------------------------
+
+    show_aspect_table(
+
+        aspects
+
+    )
+
+    # ------------------------------------
+    # Service Cards
+    # ------------------------------------
+
+    show_service_cards(
+
+        aspects
+
+    )
+
+    # ------------------------------------
+    # AI Recommendation
+    # ------------------------------------
+
+    show_ai_analysis(
+
+        result["recommendations"]
+
+    )
+
+    # ------------------------------------
+    # Trend Dashboard
+    # ------------------------------------
+
+    show_trend_dashboard()
+
+    # ------------------------------------
+    # Download Report
+    # ------------------------------------
+
+    show_download_section(
+
+        review,
+
+        result["sentiment"],
+
+        quality,
+
+        result["recommendations"],
+
+        aspects
+
+    )
